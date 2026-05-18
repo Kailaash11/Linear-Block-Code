@@ -1,158 +1,69 @@
-# AMPLITUDE SHIFT KEYING AND FREQUENCY SHIFT KEYING
+# Linear-Block-Code
 # Aim
-Write a simple Python program for the modulation and demodulation of ASK and FSK.
+
+Write a simple python program to Generate Matrix, Codeword, Hamming weight, Syndrome matrix and find the error on received codeword using Linear block code. 
 
 # Tools required
-Python IDE with Numpy and Scipy Libraries or Colab
 
-# Theory
-
-**Amplitude Shift Keying (ASK):**
-
-ASK is a digital modulation technique in which the amplitude of the carrier signal changes according to the binary input data. A high amplitude represents binary ‘1’ and low or zero amplitude represents binary ‘0’.
-
-**ASK Demodulation:**
-
-In ASK demodulation, the received signal amplitude is detected to recover the original binary data.
-
-**Frequency Shift Keying (FSK):**
-
-FSK is a digital modulation technique in which the frequency of the carrier signal changes according to the binary input data. Different frequencies represent binary ‘1’ and binary ‘0’.
-
-**FSK Demodulation:**
-
-In FSK demodulation, the received signal frequencies are detected to recover the original binary data.
+Python IDE with Numpy and Scipy
 
 # Program
-
-**ASK**
 ```
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.signal import butter, lfilter
-
-def butter_lowpass_filter(data, cutoff, fs, order=5):
-    b, a = butter(order, cutoff/(0.5*fs), btype='low')
-    return lfilter(b, a, data)
-
-fs = 1000
-f_carrier = 50
-bit_rate = 10
-T = 1
-
-t = np.linspace(0, T, int(fs*T), endpoint=False)
-
-bits = np.random.randint(0, 2, bit_rate)
-bit_duration = fs // bit_rate
-message_signal = np.repeat(bits, bit_duration)
-
-carrier = np.sin(2*np.pi*f_carrier*t)
-
-ask_signal = message_signal * carrier
-demodulated = ask_signal * carrier
-filtered_signal = butter_lowpass_filter(demodulated, f_carrier, fs)
-
-decoded_bits = (filtered_signal[::bit_duration] > 0.25).astype(int)
-
-plt.figure(figsize=(10,8))
-
-plt.subplot(4,1,1)
-plt.plot(t, message_signal)
-plt.title("Message Signal")
-plt.grid()
-
-plt.subplot(4,1,2)
-plt.plot(t, carrier)
-plt.title("Carrier Signal")
-plt.grid()
-
-plt.subplot(4,1,3)
-plt.plot(t, ask_signal)
-plt.title("ASK Modulated Signal")
-plt.grid()
-
-plt.subplot(4,1,4)
-plt.step(range(len(decoded_bits)), decoded_bits)
-plt.title("Demodulated Bits")
-plt.grid()
-
-plt.tight_layout()
-plt.show()
-```
-**FSK**
-```
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.signal import butter, lfilter
-
-def lpf(x, fc, fs):
-    b, a = butter(4, fc/(0.5*fs))
-    return lfilter(b, a, x)
-
-fs = 1000
-f1 = 30
-f2 = 70
-bit_rate = 10
-T = 1
-
-t = np.linspace(0, T, fs)
-
-bits = np.random.randint(0, 2, bit_rate)
-bit_duration = fs // bit_rate
-msg = np.repeat(bits, bit_duration)
-
-carrier_f1 = np.sin(2*np.pi*f1*t)
-carrier_f2 = np.sin(2*np.pi*f2*t)
-
-# BFSK Modulation
-fsk_signal = np.zeros_like(t)
-for i, bit in enumerate(bits):
-    s, e = i*bit_duration, (i+1)*bit_duration
-    fsk_signal[s:e] = np.sin(2*np.pi*(f2 if bit else f1)*t[s:e])
-
-# Coherent Demodulation
-corr_f1 = lpf(fsk_signal * carrier_f1, f2, fs)
-corr_f2 = lpf(fsk_signal * carrier_f2, f2, fs)
-
-decoded_bits = []
-for i in range(bit_rate):
-    s, e = i*bit_duration, (i+1)*bit_duration
-    decoded_bits.append(
-        1 if np.sum(corr_f2[s:e]**2) > np.sum(corr_f1[s:e]**2) else 0
-    )
-
-demodulated_signal = np.repeat(decoded_bits, bit_duration)
-
-# Plots
-plt.figure(figsize=(10,8))
-
-plt.subplot(5,1,1)
-plt.plot(t, msg); plt.title("Message Signal"); plt.grid()
-
-plt.subplot(5,1,2)
-plt.plot(t, carrier_f1); plt.title("Carrier Signal (f1)"); plt.grid()
-
-plt.subplot(5,1,3)
-plt.plot(t, carrier_f2); plt.title("Carrier Signal (f2)"); plt.grid()
-
-plt.subplot(5,1,4)
-plt.plot(t, fsk_signal); plt.title("FSK Modulated Signal"); plt.grid()
-
-plt.subplot(5,1,5)
-plt.plot(t, demodulated_signal); plt.title("Demodulated Signal"); plt.grid()
-
-plt.tight_layout()
-plt.show()
+pb = []
+col = int(input("Enter the Parity bits : "))      # n-k
+row = int(input("Enter the Message bits : "))     # k
+for i in range(row):
+    p = list(map(int, input(f"Enter row {i+1} (space separated) : ").split()))
+    pb.append(p)
+P = np.array(pb, dtype=int)
+I_k = np.eye(row, dtype=int)
+G = np.hstack((P, I_k))
+print("\nGenerator Matrix (G):")
+for r in G:
+    print(" ".join(map(str, r)))
+k = row
+n = G.shape[1]
+messages = np.array([[int(x) for x in format(i, f'0{k}b')] for i in range(2**k)])
+codewords = np.mod(np.dot(messages, G), 2)
+print("\nMessage   Codeword   Weight")
+weights = []
+for i in range(len(messages)):
+    wt = np.sum(codewords[i])
+    weights.append(wt)
+    print(" ".join(map(str, messages[i])), "   ",
+          " ".join(map(str, codewords[i])), "   ", wt)
+d_min = np.min([w for w in weights if w != 0])
+print("\nMinimum Hamming Distance:", d_min)
+I_r = np.eye(col, dtype=int)
+H = np.hstack((I_r, P.T))
+print("\nParity Check Matrix (H):")
+for r in H:
+    print(" ".join(map(str, r)))
+H_T = H.T
+rc = list(map(int, input("\nEnter the received codeword : ").split()))
+r = np.array(rc)
+S = np.mod(np.dot(r, H_T), 2)
+print("Syndrome :", " ".join(map(str, S)))
+error = np.zeros(n, dtype=int)
+for i in range(n):
+    if np.array_equal(H_T[i], S):
+        error[i] = 1
+        break
+print("Error Vector :", " ".join(map(str, error)))
+corrected = np.mod(r + error, 2)
+print("Corrected Codeword :", " ".join(map(str, corrected)))
 ```
 
 # Output Waveform
 
-**ASK**
-<img width="639" height="413" alt="image" src="https://github.com/user-attachments/assets/0b63c255-d8e2-4451-a791-5746747c9571" />
+<img width="592" height="493" alt="image" src="https://github.com/user-attachments/assets/2fd950b3-a93d-447e-86ff-2a4bae9ae375" />
 
+VERIFICATION
 
-**FSK**
-<img width="549" height="331" alt="image" src="https://github.com/user-attachments/assets/c77531b7-9dea-4c9b-bcec-98862b892e26" />
+<img width="736" height="986" alt="image" src="https://github.com/user-attachments/assets/c5b014f6-d6e6-4813-a399-108b44c493c8" />
+
+<img width="591" height="470" alt="image" src="https://github.com/user-attachments/assets/ee0c7f77-84d8-408a-9213-b6f376a28838" />
 
 # Results
-Thus, the Python program for the modulation and demodulation of ASK and FSK has been successfully simulated and verified.
+Thus linear block code operation for the given input is successfully verified.`
